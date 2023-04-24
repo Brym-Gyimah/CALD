@@ -39,14 +39,39 @@ from torch.utils.data.sampler import SubsetRandomSampler
 
 from detection.frcnn_la import fasterrcnn_resnet50_fpn_feature
 from detection.coco_utils import get_coco, get_coco_kp
+from detection.voc_utils import get_voc2007, get_voc2012
 from detection.group_by_aspect_ratio import GroupedBatchSampler, create_aspect_ratio_groups
 from detection.engine import coco_evaluate, voc_evaluate
 from detection import utils
 from detection import transforms as T
 from detection.train import *
 
+
+
 from ll4al.data.sampler import SubsetSequentialSampler
 import pickle
+
+
+def get_dataset(name, image_set, transform, data_path):
+    paths = {
+        "coco": (data_path, get_coco, 91),
+        "coco_kp": (data_path, get_coco_kp, 2),
+        "voc2007": (data_path, get_voc2007, 21),
+        "voc2012": (data_path, get_voc2012, 21)
+    }
+    p, ds_fn, num_classes = paths[name]
+
+    ds = ds_fn(p, image_set=image_set, transforms=transform)
+    return ds, num_classes
+
+
+def get_transform(train):
+    transforms = []
+    transforms.append(T.ToTensor())
+    if train:
+        transforms.append(T.RandomHorizontalFlip(0.5))
+    return T.Compose(transforms)
+    
 
 
 def train_one_epoch(task_model, task_optimizer, data_loader, device, cycle, epoch, print_freq):
