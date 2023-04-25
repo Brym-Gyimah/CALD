@@ -274,7 +274,7 @@ def main(args):
                                     # more convenient if we maintain the order of subset
                                     pin_memory=True, collate_fn=utils.collate_fn)
         u = get_uncertainty(task_model, labeled_loader)
-        with open("vis/ltc_labeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
+        with open("/content/CALD/vis/ltc_labeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
                   "wb") as fp:  # Pickling
             pickle.dump(u, fp)
         unlabeled_loader = DataLoader(dataset, batch_size=1, sampler=SubsetSequentialSampler(subset),
