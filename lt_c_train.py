@@ -140,7 +140,8 @@ def get_uncertainty(task_model, unlabeled_loader):
                 uncertainty = 1.0
                 for box, prop, prob_max in zip(output['boxes'], output['props'], output['prob_max']):
                     iou = calcu_iou(box, prop)
-                    u = torch.abs(iou + prob_max - 1)
+                    quality = torch.pow(prob_max, 0.5) * torch.pow(iou, 1. - 0.5)
+                    u = torch.abs(1.0 - quality)
                     uncertainty = min(uncertainty, u.item())
                 uncertainties.append(uncertainty)
     return uncertainties
