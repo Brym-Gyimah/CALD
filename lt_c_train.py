@@ -46,8 +46,6 @@ from detection import utils
 from detection import transforms as T
 from detection.train import *
 
-
-
 from ll4al.data.sampler import SubsetSequentialSampler
 import pickle
 
@@ -127,7 +125,7 @@ def calcu_iou(A, B):
     return iner_area / (Aarea + Barea - iner_area)
 
 
-def get_uncertainty(task_model, unlabeled_loader):
+def get_uncertainty(task_model, unlabeled_loader, quality_xi=0.5):
     task_model.eval()
     uncertainties = []
 
@@ -140,7 +138,7 @@ def get_uncertainty(task_model, unlabeled_loader):
                 uncertainty = 1.0
                 for box, prop, prob_max in zip(output['boxes'], output['props'], output['prob_max']):
                     iou = calcu_iou(box, prop)
-                    quality = torch.pow(prob_max, 0.5) * torch.pow(iou, 1. - 0.5)
+                    quality = torch.pow(prob_max, quality_xi) * torch.pow(iou, 1. - quality_xi)
                     u = torch.abs(1.0 - quality)
                     uncertainty = min(uncertainty, u.item())
                 uncertainties.append(uncertainty)
