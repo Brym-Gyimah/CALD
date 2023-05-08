@@ -145,12 +145,13 @@ def get_uncertainty(task_model, unlabeled_loader, quality_xi=0.5):
     return uncertainties
 
 
-def train_quality_xi(task_model, labeled_loader, unlabeled_loader):
-    optimizer = optim.SGD([quality_xi], lr=0.01)
+def train_quality_xi(task_model, labeled_loader, unlabeled_loader, lr=0.001):
+    quality_xi = torch.nn.Parameter(torch.Tensor([0.5]))
+    optimizer = optim.Adam([quality_xi], lr=lr)
 
     for epoch in range(num_epochs):
+        task_model.train()
         for images, labels in labeled_loader:
-            task_model.train()
             images = list(img.cuda() for img in images)
             labels = [{k: v.cuda() for k, v in t.items()} for t in labels]
             loss_dict = task_model(images, labels)
