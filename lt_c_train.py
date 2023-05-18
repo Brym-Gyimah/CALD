@@ -79,6 +79,9 @@ def train_one_epoch(task_model, task_optimizer, data_loader, device, cycle, epoc
     header = 'Cycle:[{}] Epoch: [{}]'.format(cycle, epoch)
 
     task_lr_scheduler = None
+    
+    #quality_xi = torch.tensor([0.5], requires_grad=True)
+
 
     if epoch == 0:
         warmup_factor = 1. / 1000
@@ -94,9 +97,9 @@ def train_one_epoch(task_model, task_optimizer, data_loader, device, cycle, epoc
         task_losses = sum(loss for loss in task_loss_dict.values())
         
         # Add loss from compute_loss
-        _, predicted_scores = get_uncertainty(task_model, unlabeled_loader, quality_xi=0.5)
-        loss_from_compute = compute_loss(predicted_scores)
-        task_losses += loss_from_compute
+        #_, predicted_scores = get_uncertainty(task_model, unlabeled_loader, quality_xi)
+        #loss_from_compute = compute_loss(predicted_scores)
+        #task_losses += loss_from_compute
         
         # reduce losses over all GPUs for logging purposes
         task_loss_dict_reduced = utils.reduce_dict(task_loss_dict)
@@ -114,6 +117,17 @@ def train_one_epoch(task_model, task_optimizer, data_loader, device, cycle, epoc
             task_lr_scheduler.step()
         metric_logger.update(task_loss=task_losses_reduced)
         metric_logger.update(task_lr=task_optimizer.param_groups[0]["lr"])
+        
+        # Update quality_xi using gradient descent
+        quality_xi.grad = None
+        loss_from_compute.backward()
+        task_optimizer.step()
+        
+        # Update quality_xi using gradient descent
+        #quality_xi_optimizer.zero_grad()
+        #loss_from_compute.backward()
+        #quality_xi_optimizer.step()
+        
     return metric_logger
 
 
@@ -141,7 +155,7 @@ def compute_loss(predicted_quality_score):
     return loss
 
 
-def get_uncertainty(task_model, unlabeled_loader, quality_xi=0.5):
+def get_uncertainty(task_model, unlabeled_loader, quality_xi-0.5):
     task_model.eval()
     uncertainties = []
 
@@ -157,35 +171,10 @@ def get_uncertainty(task_model, unlabeled_loader, quality_xi=0.5):
                     quality = torch.pow(prob_max, quality_xi) * torch.pow(iou, 1. - quality_xi)
                     u = torch.abs(1.0 - quality)
                     uncertainty = min(uncertainty, u.item())
-                    quality_scores.append(quality.item())
+                    #quality_scores.append(quality.item())
                 uncertainties.append(uncertainty)
-                predicted_scores.append(quality_scores)
-    return uncertainties, predicted_scores
-
-
-def train_quality_xi(task_model, labeled_loader, unlabeled_loader, lr=0.001):
-    quality_xi = torch.nn.Parameter(torch.Tensor([0.5]))
-    optimizer = optim.Adam([quality_xi], lr=lr)
-
-    for epoch in range(num_epochs):
-        task_model.train()
-        for images, labels in labeled_loader:
-            images = list(img.cuda() for img in images)
-            labels = [{k: v.cuda() for k, v in t.items()} for t in labels]
-            loss_dict = task_model(images, labels)
-            losses = sum(loss for loss in loss_dict.values())
-
-            optimizer.zero_grad()
-            losses.backward()
-            optimizer.step()
-
-        # Update quality_xi
-        uncertainty = get_uncertainty(task_model, unlabeled_loader, quality_xi)
-        uncertainty_mean = sum(uncertainty) / len(uncertainty)
-        quality_xi = 1.0 - uncertainty_mean
-
-    return quality_xi
-
+                #predicted_scores.append(quality_scores)
+    return uncertainties #predicted_scores
 
 
 def main(args):
