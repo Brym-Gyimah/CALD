@@ -92,6 +92,12 @@ def train_one_epoch(task_model, task_optimizer, data_loader, device, cycle, epoc
 
         task_loss_dict = task_model(images, targets)
         task_losses = sum(loss for loss in task_loss_dict.values())
+        
+        # Add loss from compute_loss
+        _, predicted_scores = get_uncertainty(task_model, unlabeled_loader, quality_xi=0.5)
+        loss_from_compute = compute_loss(predicted_scores)
+        task_losses += loss_from_compute
+        
         # reduce losses over all GPUs for logging purposes
         task_loss_dict_reduced = utils.reduce_dict(task_loss_dict)
         task_losses_reduced = sum(loss.cpu() for loss in task_loss_dict_reduced.values())
@@ -125,6 +131,16 @@ def calcu_iou(A, B):
     return iner_area / (Aarea + Barea - iner_area)
 
 
+def compute_loss(predicted_quality_score):
+    '''
+    compute the loss on the quality measure of the uncertainty score
+    '''
+    target_quality_score = torch.tensor(1.0).to(predicted_quality_score.device)
+    mse_loss = torch.nn.MSELoss()
+    loss = mse_loss(predicted_quality_score, target_quality_score)
+    return loss
+
+
 def get_uncertainty(task_model, unlabeled_loader, quality_xi=0.5):
     task_model.eval()
     uncertainties = []
@@ -141,8 +157,10 @@ def get_uncertainty(task_model, unlabeled_loader, quality_xi=0.5):
                     quality = torch.pow(prob_max, quality_xi) * torch.pow(iou, 1. - quality_xi)
                     u = torch.abs(1.0 - quality)
                     uncertainty = min(uncertainty, u.item())
+                    quality_scores.append(quality.item())
                 uncertainties.append(uncertainty)
-    return uncertainties
+                predicted_scores.append(quality_scores)
+    return uncertainties, predicted_scores
 
 
 def train_quality_xi(task_model, labeled_loader, unlabeled_loader, lr=0.001):
