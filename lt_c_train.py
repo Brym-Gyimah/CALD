@@ -25,6 +25,7 @@ import math
 import sys
 import numpy as np
 import math
+from math import exp
 
 import torch
 import torch.utils.data
@@ -36,6 +37,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.data.sampler import SubsetRandomSampler
+from torchmetrics.functional import pairwise_cosine_similarity
+
 
 from detection.frcnn_la import fasterrcnn_resnet50_fpn_feature
 from detection.coco_utils import get_coco, get_coco_kp
@@ -71,7 +74,6 @@ def get_transform(train):
     return T.Compose(transforms)
     
 
-
 def train_one_epoch(task_model, task_optimizer, data_loader, device, cycle, epoch, print_freq):
     task_model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -79,9 +81,6 @@ def train_one_epoch(task_model, task_optimizer, data_loader, device, cycle, epoc
     header = 'Cycle:[{}] Epoch: [{}]'.format(cycle, epoch)
 
     task_lr_scheduler = None
-    
-    #quality_xi = torch.tensor([0.5], requires_grad=True)
-
 
     if epoch == 0:
         warmup_factor = 1. / 1000
@@ -95,12 +94,6 @@ def train_one_epoch(task_model, task_optimizer, data_loader, device, cycle, epoc
 
         task_loss_dict = task_model(images, targets)
         task_losses = sum(loss for loss in task_loss_dict.values())
-        
-        # Add loss from compute_loss
-        #_, predicted_scores = get_uncertainty(task_model, unlabeled_loader, quality_xi)
-        #loss_from_compute = compute_loss(predicted_scores)
-        #task_losses += loss_from_compute
-        
         # reduce losses over all GPUs for logging purposes
         task_loss_dict_reduced = utils.reduce_dict(task_loss_dict)
         task_losses_reduced = sum(loss.cpu() for loss in task_loss_dict_reduced.values())
@@ -117,17 +110,6 @@ def train_one_epoch(task_model, task_optimizer, data_loader, device, cycle, epoc
             task_lr_scheduler.step()
         metric_logger.update(task_loss=task_losses_reduced)
         metric_logger.update(task_lr=task_optimizer.param_groups[0]["lr"])
-        
-        # Update quality_xi using gradient descent
-        quality_xi.grad = None
-        loss_from_compute.backward()
-        task_optimizer.step()
-        
-        # Update quality_xi using gradient descent
-        #quality_xi_optimizer.zero_grad()
-        #loss_from_compute.backward()
-        #quality_xi_optimizer.step()
-        
     return metric_logger
 
 
@@ -145,17 +127,7 @@ def calcu_iou(A, B):
     return iner_area / (Aarea + Barea - iner_area)
 
 
-def compute_loss(predicted_quality_score):
-    '''
-    compute the loss on the quality measure of the uncertainty score
-    '''
-    target_quality_score = torch.tensor(1.0).to(predicted_quality_score.device)
-    mse_loss = torch.nn.MSELoss()
-    loss = mse_loss(predicted_quality_score, target_quality_score)
-    return loss
-
-
-def get_uncertainty(task_model, unlabeled_loader, quality_xi-0.5):
+def get_uncertainty(task_model, unlabeled_loader):
     task_model.eval()
     uncertainties = []
 
@@ -171,11 +143,45 @@ def get_uncertainty(task_model, unlabeled_loader, quality_xi-0.5):
                     quality = torch.pow(prob_max, quality_xi) * torch.pow(iou, 1. - quality_xi)
                     u = torch.abs(1.0 - quality)
                     uncertainty = min(uncertainty, u.item())
-                    #quality_scores.append(quality.item())
                 uncertainties.append(uncertainty)
-                #predicted_scores.append(quality_scores)
-    return uncertainties #predicted_scores
+    return uncertainties
 
+
+def dist_cal(unlabeled_embeddings):
+  # dist_mat = torch.cdist(unlabeled_embeddings,unlabeled_embeddings,p=2)
+  dist_mat = pairwise_cosine_similarity(unlabeled_embeddings,unlabeled_embeddings,p=2)
+  return dist_mat
+
+
+def knei_dist(interd,fetch):
+  num_nei = round(interd.shape[0]/fetch)
+  knei_dist = []
+  for i in range(interd.shape[0]):
+    temp_dist = torch.sort(interd[i][:]).values
+    knei_dist.append(torch.mean(temp_dist[:num_nei]))
+  dth = torch.mean(torch.tensor(knei_dist)) 
+  return dth
+
+
+def diversity_select(fetchsize, embedding_unlabeled, bs, uncertainty_score):
+  # embedding_unlabeled = self.get_embedding(self.unlabeled_dataset)
+  idx = []
+  nb = round(embedding_unlabeled.shape[0]/bs)
+  for b in range(nb):
+    embedding_unlabeled_batch = embedding_unlabeled[b*bs:(b+1)*bs][:]
+    interd = dist_cal(embedding_unlabeled_batch)
+    dth = knei_dist(interd, round(fetchsize/nb))
+    # print(dth)
+    priority = uncertainty_score
+    # print(priority)
+    for i in range(round(fetchsize/nb)):
+      top_idx = torch.argmax(priority).item()
+      idx.append(top_idx)
+      neighbordist = interd[top_idx][:]
+      neighboridx = torch.where(neighbordist <= dth)[0]
+      priority[top_idx] = priority[top_idx] / (1 + 20*torch.sum(priority[neighboridx]))  
+      priority[neighboridx] = priority[neighboridx] / (1 + 20*torch.sum(priority[neighboridx]))
+  return idx
 
 def main(args):
     torch.cuda.set_device(0)
@@ -260,6 +266,7 @@ def main(args):
                 pickle.dump(torch.tensor(uncertainty)[arg][:budget_num].numpy(), fp)
             # Update the labeled dataset and the unlabeled dataset, respectively
             labeled_set += list(torch.tensor(subset)[arg][:budget_num].numpy())
+            
             # file = open('vis/lt_c_{}.pkl'.format(cycle), "wb")
             # pickle.dump(labeled_set, file)  # 保存list到文件
             # file.close()
