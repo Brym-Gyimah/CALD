@@ -149,8 +149,8 @@ def get_uncertainty(task_model, unlabeled_loader):
 
 def dist_cal(unlabeled_embeddings):
   # dist_mat = torch.cdist(unlabeled_embeddings,unlabeled_embeddings,p=2)
-  dist_mat = pairwise_cosine_similarity(unlabeled_embeddings,unlabeled_embeddings,p=2)
-  return dist_mat
+  dist_mat = pairwise_cosine_similarity(unlabeled_embeddings,unlabeled_embeddings)
+  return 1-dist_mat
 
 
 def knei_dist(interd,fetch):
@@ -162,7 +162,6 @@ def knei_dist(interd,fetch):
   dth = torch.mean(torch.tensor(knei_dist)) 
   return dth
 
-
 def diversity_select(fetchsize, embedding_unlabeled, bs, uncertainty_score):
   # embedding_unlabeled = self.get_embedding(self.unlabeled_dataset)
   idx = []
@@ -172,7 +171,7 @@ def diversity_select(fetchsize, embedding_unlabeled, bs, uncertainty_score):
     interd = dist_cal(embedding_unlabeled_batch)
     dth = knei_dist(interd, round(fetchsize/nb))
     # print(dth)
-    priority = uncertainty_score
+    priority = torch.exp(-uncertainty_score)
     # print(priority)
     for i in range(round(fetchsize/nb)):
       top_idx = torch.argmax(priority).item()
@@ -264,8 +263,15 @@ def main(args):
             with open("vis/ltc_unlabeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
                       "wb") as fp:  # Pickling
                 pickle.dump(torch.tensor(uncertainty)[arg][:budget_num].numpy(), fp)
+            
+            # Diversity Exploration Computation
+            batch_size = 500
+            query_idx = diversity_select(budget_num, subset, batch_size, uncertainty)
+            
             # Update the labeled dataset and the unlabeled dataset, respectively
-            labeled_set += list(torch.tensor(subset)[arg][:budget_num].numpy())
+            labeled_set += list(torch.tensor(subset)[query_idx].numpy())
+
+            # labeled_set += list(torch.tensor(subset)[arg][:budget_num].numpy())
             
             # file = open('vis/lt_c_{}.pkl'.format(cycle), "wb")
             # pickle.dump(labeled_set, file)  # 保存list到文件
@@ -322,8 +328,15 @@ def main(args):
         with open("vis/ltc_unlabeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
                   "wb") as fp:  # Pickling
             pickle.dump(torch.tensor(uncertainty)[arg][:budget_num].numpy(), fp)
+        
+        # Diversity Exploration Computation
+        batch_size = 500
+        query_idx = diversity_select(budget_num, subset, batch_size, uncertainty)            
         # Update the labeled dataset and the unlabeled dataset, respectively
-        labeled_set += list(torch.tensor(subset)[arg][:budget_num].numpy())
+        labeled_set += list(torch.tensor(subset)[query_idx].numpy())
+        
+        # Update the labeled dataset and the unlabeled dataset, respectively
+        #labeled_set += list(torch.tensor(subset)[arg][:budget_num].numpy())
         # file = open('vis/lt_c_{}.pkl'.format(cycle), "wb")
         # pickle.dump(labeled_set, file)  # 保存list到文件
         # file.close()
