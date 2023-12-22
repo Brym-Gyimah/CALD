@@ -1,32 +1,21 @@
-# Consistency-basd Active Learning for Object Detection
-
-## Introduction
-This repo is the official implementation of CALD: [**Consistency-basd Active Learning for Object Detection**](https://arxiv.org/abs/2103.10374), accepted to the Workshop on Learning With Limited Labelled Data for Image and Video Understanding (L3D-IVU), in conjunction with CVPR 2022.
-
-![detail](detail.jpg)
-![results](results.png)
+#Active Learning for Object Detection
 ## Requirement
+Create a conda environment with python 3.7 and activate the environment
+- conda create -n CALD python=3.7 -y
+Install pytorch 
 - pytorch>=1.7.1
 - torchvision=0.8.2
 
 (option if you want to get class-wise results of coco)
+- pip install mmcv-full==1.0.4 -f https://download.openmmlab.com/mmcv/dist/cu110/torch1.7.1/index.html
+- pip install pycocotools==2.0.2
+- pip install terminaltables==3.1.0
 
-- mmcv=1.0.4
-- pycocotools=2.0.2
-- terminaltables=3.1.0
 ## Quick start
 ```
-python cald_train.py --dataset voc2012 --data-path your_data_path --model faster
+Single-GPU
+python ls_c_train.py --dataset voc2012 --data-path your_data_path --model faster
+
+Multi-GPU
+python -m torch.distributed.launch --nproc_per_node=2 --use_env ls_c_train.py --dataset 'coco' --data-path './data/coco/' --model faster --first-checkpoint-path './checkpoint-path/'
 ``` 
-## Citation
-
-If you are interested with our work, please cite this project.
-
-```
-@article{yu2021consistency,
-  title={Consistency-based active learning for object detection},
-  author={Yu, Weiping and Zhu, Sijie and Yang, Taojiannan and Chen, Chen and Liu, Mengyuan},
-  journal={arXiv preprint arXiv:2103.10374},
-  year={2021}
-}
-```
