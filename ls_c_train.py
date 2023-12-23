@@ -31,6 +31,7 @@ import torchvision.transforms.functional as F
 import torch
 import torch.utils.data
 from torch import nn
+from math import exp
 import torchvision
 import torchvision.models.detection
 import torchvision.models.detection.mask_rcnn
@@ -38,6 +39,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.data.sampler import SubsetRandomSampler
+from torchmetrics.functional import pairwise_cosine_similarity
+
 
 from detection.frcnn_la import fasterrcnn_resnet50_fpn_feature
 from detection.retinanet_cal import retinanet_resnet50_fpn_cal
@@ -49,7 +52,7 @@ from detection import transforms as T
 from detection.train import *
 
 from ll4al.data.sampler import SubsetSequentialSampler
-from cal4od.cal4od_helper import *
+from cald.cald_helper import *
 
 
 def train_one_epoch(task_model, task_optimizer, data_loader, device, cycle, epoch, print_freq):
@@ -153,6 +156,42 @@ def get_uncertainty(task_model, unlabeled_loader, aves=None):
                 stability_img = np.sum(prob_max * stability_img) / np.sum(prob_max)
                 stability_all.append(stability_img - U)
     return stability_all
+    
+
+  
+def dist_cal(unlabeled_embeddings):
+  # dist_mat = torch.cdist(unlabeled_embeddings,unlabeled_embeddings,p=2)
+  dist_mat = pairwise_cosine_similarity(unlabeled_embeddings,unlabeled_embeddings,p=2)
+  return dist_mat
+
+def knei_dist(interd,fetch):
+  num_nei = round(interd.shape[0]/fetch)
+  knei_dist = []
+  for i in range(interd.shape[0]):
+    temp_dist = torch.sort(interd[i][:]).values
+    knei_dist.append(torch.mean(temp_dist[:num_nei]))
+  dth = torch.mean(torch.tensor(knei_dist))
+  return dth
+
+def diversity_select(fetchsize, embedding_unlabeled, bs, uncertainty_score):
+  # embedding_unlabeled = self.get_embedding(self.unlabeled_dataset)
+  idx = []
+  nb = round(embedding_unlabeled.shape[0]/bs)
+  for b in range(nb):
+    embedding_unlabeled_batch = embedding_unlabeled[b*bs:(b+1)*bs][:]
+    interd = dist_cal(embedding_unlabeled_batch)
+    dth = knei_dist(interd, round(fetchsize/nb))
+    # print(dth)
+    priority = uncertainty_score
+    # print(priority)
+    for i in range(round(fetchsize/nb)):
+      top_idx = torch.argmax(priority).item()
+      idx.append(top_idx)
+      neighbordist = interd[top_idx][:]
+      neighboridx = torch.where(neighbordist <= dth)[0]
+      priority[top_idx] = priority[top_idx] / (1 + 20*torch.sum(priority[neighboridx]))
+      priority[neighboridx] = priority[neighboridx] / (1 + 20*torch.sum(priority[neighboridx]))
+  return idx
 
 
 def main(args):
@@ -306,6 +345,7 @@ def main(args):
         #     pickle.dump(torch.tensor(uncertainty)[arg][:int(budget_num)].numpy(), fp)
 
         # Update the labeled dataset and the unlabeled dataset, respectively
+        
         labeled_set += list(torch.tensor(subset)[arg][:budget_num].numpy())
         labeled_set = list(set(labeled_set))
         unlabeled_set = list(torch.tensor(subset)[arg][budget_num:].numpy())
