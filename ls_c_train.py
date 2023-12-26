@@ -24,6 +24,7 @@ import random
 import math
 import sys
 import numpy as np
+from scipy.spatial.distance import pdist, squareform
 import math
 import pickle
 
@@ -39,7 +40,6 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.data.sampler import SubsetRandomSampler
-from torchmetrics.functional import pairwise_cosine_similarity
 
 
 from detection.frcnn_la import fasterrcnn_resnet50_fpn_feature
@@ -158,23 +158,21 @@ def get_uncertainty(task_model, unlabeled_loader, aves=None):
     return stability_all
 
 def dist_cal(unlabeled_embeddings):
-  # dist_mat = torch.cdist(unlabeled_embeddings,unlabeled_embeddings,p=2)
-  dist_mat = pairwise_cosine_similarity(unlabeled_embeddings,unlabeled_embeddings,p=2)
+  dist_mat = squareform(pdist(unlabeled_embeddings, metric="cosine"))
   return dist_mat
 
 def knei_dist(interd,fetch):
   num_nei = round(interd.shape[0]/fetch)
   knei_dist = []
-  for i in range(interd.shape[0]):
-    temp_dist = torch.sort(interd[i][:]).values
-    knei_dist.append(torch.mean(temp_dist[:num_nei]))
-  dth = torch.mean(torch.tensor(knei_dist))
+  for i in range(np.shape(interd)[0]):
+    temp_dist = np.sort(interd[i][:])
+    knei_dist.append(np.mean(temp_dist[:num_nei]))
+  dth = np.mean(knei_dist)
   return dth
 
 def diversity_select(fetchsize, embedding_unlabeled, bs, uncertainty_score):
-  # embedding_unlabeled = self.get_embedding(self.unlabeled_dataset)
   idx = []
-  nb = round(embedding_unlabeled.shape[0]/bs)
+  nb = round(np.shape(embedding_unlabeled)[0]/bs)
   for b in range(nb):
     embedding_unlabeled_batch = embedding_unlabeled[b*bs:(b+1)*bs][:]
     interd = dist_cal(embedding_unlabeled_batch)
@@ -183,12 +181,12 @@ def diversity_select(fetchsize, embedding_unlabeled, bs, uncertainty_score):
     priority = uncertainty_score
     # print(priority)
     for i in range(round(fetchsize/nb)):
-      top_idx = torch.argmax(priority).item()
+      top_idx = np.argmax(priority)
       idx.append(top_idx)
       neighbordist = interd[top_idx][:]
-      neighboridx = torch.where(neighbordist <= dth)[0]
-      priority[top_idx] = priority[top_idx] / (1 + 20*torch.sum(priority[neighboridx]))
-      priority[neighboridx] = priority[neighboridx] / (1 + 20*torch.sum(priority[neighboridx]))
+      neighboridx = np.where(neighbordist <= dth)[0]
+      priority[top_idx] = priority[top_idx] / (1 + 20*np.sum(priority[neighboridx]))
+      priority[neighboridx] = priority[neighboridx] / (1 + 20*np.sum(priority[neighboridx]))
   return idx
 
 
