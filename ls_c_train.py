@@ -156,7 +156,13 @@ def get_uncertainty(task_model, unlabeled_loader, aves=None):
                 stability_img = np.sum(prob_max * stability_img) / np.sum(prob_max)
                 stability_all.append(stability_img - U)
     return stability_all
-    
+
+def get_unlabeledset(unlabled_loader):
+    unlabeled_set = []
+    for images, _ in unlabeled_loader:
+        for image in images:
+            unlabeled_set.append(image.numpy())
+    return np.array(unlabeled_set)
 
   
 def dist_cal(unlabeled_embeddings):
@@ -339,14 +345,17 @@ def main(args):
         unlabeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(subset),
                                       num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
         uncertainty = get_uncertainty(task_model, unlabeled_loader)
-        arg = np.argsort(uncertainty)
+        unlabeledset = torch.tensor(get_unlabeledset(unlabled_loader))
+        select_idxs = diversity_select(budget_num, unlabeledset, 1000, uncertainty)
+        labeled_set += select_idxs
+        # arg = np.argsort(uncertainty)
         # with open("vis/lsc_unlabeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
         #           "wb") as fp:  # Pickling
         #     pickle.dump(torch.tensor(uncertainty)[arg][:int(budget_num)].numpy(), fp)
 
         # Update the labeled dataset and the unlabeled dataset, respectively
         
-        labeled_set += list(torch.tensor(subset)[arg][:budget_num].numpy())
+        # labeled_set += list(torch.tensor(subset)[arg][:budget_num].numpy())
         labeled_set = list(set(labeled_set))
         unlabeled_set = list(torch.tensor(subset)[arg][budget_num:].numpy())
 
