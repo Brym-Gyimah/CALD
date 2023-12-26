@@ -157,14 +157,6 @@ def get_uncertainty(task_model, unlabeled_loader, aves=None):
                 stability_all.append(stability_img - U)
     return stability_all
 
-
-def get_unlabeledset(unlabled_loader):
-    unlabeled_set = []
-    for images, _ in unlabeled_loader:
-        for image in images:
-            unlabeled_set.append(image.numpy())
-    return np.array(unlabeled_set)
-
 def dist_cal(unlabeled_embeddings):
   # dist_mat = torch.cdist(unlabeled_embeddings,unlabeled_embeddings,p=2)
   dist_mat = pairwise_cosine_similarity(unlabeled_embeddings,unlabeled_embeddings,p=2)
@@ -345,7 +337,7 @@ def main(args):
         unlabeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(subset),
                                       num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
         uncertainty = get_uncertainty(task_model, unlabeled_loader)
-        unlabeledset = torch.tensor(get_unlabeledset(unlabled_loader))
+        unlabeledset = next(iter(unlabeled_loader))[0].numpy()
         select_idxs = diversity_select(budget_num, unlabeledset, 1000, uncertainty)
         # arg = np.argsort(uncertainty)
         # with open("vis/lsc_unlabeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
