@@ -161,8 +161,7 @@ def get_unlabeledset(unlabeled_loader):
     unlabeled_set = []
     for images, _ in unlabeled_loader:
         for image in images:
-            image_numpy = image.numpy()
-            unlabeledset.append(data_numpy)
+            unlabeledset.append(image)
     return np.concatenate(unlabeledset, axis=0)
 
 def dist_cal(unlabeled_embeddings):
