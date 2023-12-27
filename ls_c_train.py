@@ -229,8 +229,8 @@ def main(args):
             init_num = 1000
             budget_num = 500
     else:
-        init_num = 5000
-        budget_num = 1000
+        init_num = 500
+        budget_num = 500
     indices = list(range(num_images))
     random.shuffle(indices)
     labeled_set = indices[:init_num]
