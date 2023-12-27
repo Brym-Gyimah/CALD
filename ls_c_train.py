@@ -157,6 +157,14 @@ def get_uncertainty(task_model, unlabeled_loader, aves=None):
                 stability_all.append(stability_img - U)
     return stability_all
 
+def get_unlabeledset(unlabeled_loader):
+    unlabeled_set = []
+    for images, _ in unlabeled_loader:
+        for image in images:
+            image_numpy = image.numpy()
+            unlabeledset.append(data_numpy)
+    return np.concatenate(unlabeledset, axis=0)
+
 def dist_cal(unlabeled_embeddings):
   dist_mat = squareform(pdist(unlabeled_embeddings, metric="cosine"))
   return dist_mat
@@ -335,7 +343,7 @@ def main(args):
         unlabeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(subset),
                                       num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
         uncertainty = get_uncertainty(task_model, unlabeled_loader)
-        unlabeledset = next(iter(unlabeled_loader))[0].numpy()
+        unlabeledset = get_unlabeledset(unlabeled_loader)
         select_idxs = diversity_select(budget_num, unlabeledset, 1000, uncertainty)
         # arg = np.argsort(uncertainty)
         # with open("vis/lsc_unlabeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
