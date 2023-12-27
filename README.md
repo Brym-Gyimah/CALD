@@ -2,7 +2,6 @@
 ## Requirement
 Create a conda environment with python 3.7 and activate the environment
 - conda create -n CALD python=3.7 -y
-Install pytorch 
 - pytorch>=1.7.0
 - torchvision=0.8.0
 
