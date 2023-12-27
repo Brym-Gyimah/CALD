@@ -343,6 +343,7 @@ def main(args):
                                       num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
         uncertainty = get_uncertainty(task_model, unlabeled_loader)
         unlabeledset = get_unlabeledset(unlabeled_loader)
+        print("Size of the unlabeled dataset:", np.shape(unlabeledset))
         select_idxs = diversity_select(budget_num, unlabeledset, 1000, uncertainty)
         # arg = np.argsort(uncertainty)
         # with open("vis/lsc_unlabeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
