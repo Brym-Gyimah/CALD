@@ -161,7 +161,8 @@ def get_unlabeledset(unlabeled_loader):
     unlabeledset = []
     for images, _ in unlabeled_loader:
         for image in images:
-            unlabeledset.append(image)
+            # print("shape of the image:", image.shape)
+            unlabeledset.append([image])
     return np.array(unlabeledset)
 
 def dist_cal(unlabeled_embeddings):
