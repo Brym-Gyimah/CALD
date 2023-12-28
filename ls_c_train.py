@@ -158,7 +158,7 @@ def get_uncertainty(task_model, unlabeled_loader, aves=None):
     return stability_all
 
 def get_unlabeledset(unlabeled_loader):
-    unlabeled_set = []
+    unlabeledset = []
     for images, _ in unlabeled_loader:
         for image in images:
             unlabeledset.append(image)
