@@ -228,8 +228,8 @@ def main(args):
             init_num = 1000
             budget_num = 500
     else:
-        init_num = 500
-        budget_num = 200
+        init_num = 5000
+        budget_num = 1000
     indices = list(range(num_images))
     random.shuffle(indices)
     labeled_set = indices[:init_num]
@@ -277,7 +277,7 @@ def main(args):
             print("Getting stability")
             random.shuffle(unlabeled_set)
             if 'coco' in args.dataset:
-                subset = unlabeled_set[:500]
+                subset = unlabeled_set[:5000]
             else:
                 subset = unlabeled_set
             labeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(labeled_set),
@@ -289,15 +289,19 @@ def main(args):
             unlabeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(subset),
                                           num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
             uncertainty = get_uncertainty(task_model, unlabeled_loader)
-            arg = np.argsort(uncertainty)
+            # arg = np.argsort(uncertainty)
+            
+            unlabeledset = get_unlabeledset(unlabeled_loader)
+            select_idxs = diversity_select(budget_num, unlabeledset, 1000, uncertainty)
+            
             with open("vis/lsc_unlabeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
                       "wb") as fp:  # Pickling
                 pickle.dump(torch.tensor(uncertainty)[arg][:int(budget_num)].numpy(), fp)
             # Update the labeled dataset and the unlabeled dataset, respectively
-            labeled_set += list(torch.tensor(subset)[arg][:budget_num].numpy())
+            
+            labeled_set += select_idxs
             labeled_set = list(set(labeled_set))
             unlabeled_set = list(set(indices) - set(labeled_set))
-
             # Create a new dataloader for the updated labeled dataset
             train_sampler = SubsetRandomSampler(labeled_set)
             continue
@@ -330,7 +334,7 @@ def main(args):
         #         os.path.join(args.first_checkpoint_path, '{}_frcnn_1st.pth'.format(args.dataset)))
         random.shuffle(unlabeled_set)
         if 'coco' in args.dataset:
-            subset = unlabeled_set[:500]
+            subset = unlabeled_set[:5000]
         else:
             subset = unlabeled_set
         # labeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(labeled_set),
@@ -343,7 +347,7 @@ def main(args):
                                       num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
         uncertainty = get_uncertainty(task_model, unlabeled_loader)
         unlabeledset = get_unlabeledset(unlabeled_loader)
-        print("Size of the unlabeled dataset:", np.shape(unlabeledset))
+        # print("Size of the unlabeled dataset:", np.shape(unlabeledset))
         select_idxs = diversity_select(budget_num, unlabeledset, 1000, uncertainty)
         # arg = np.argsort(uncertainty)
         # with open("vis/lsc_unlabeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
@@ -352,9 +356,7 @@ def main(args):
 
         # Update the labeled dataset and the unlabeled dataset, respectively
         labeled_set += select_idxs
-        # labeled_set += list(torch.tensor(subset)[arg][:budget_num].numpy())
         labeled_set = list(set(labeled_set))
-        #unlabeled_set = list(torch.tensor(subset)[arg][budget_num:].numpy())
         unlabeled_set = list(set(indices) - set(labeled_set))
 
         # Create a new dataloader for the updated labeled dataset
