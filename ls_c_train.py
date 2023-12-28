@@ -183,7 +183,7 @@ def diversity_select(fetchsize, embedding_unlabeled, bs, uncertainty_score):
     idx = []
     nb = round(np.shape(embedding_unlabeled)[0]/bs)
     for b in range(nb):
-        embedding_unlabeled_batch = embedding_unlabeled[b*bs:(b+1)*bs]
+        embedding_unlabeled_batch = embedding_unlabeled[b*bs:(b+1)*bs][:]
         interd = dist_cal(embedding_unlabeled_batch)
         dth = knei_dist(interd, round(fetchsize/nb))
         priority = uncertainty_score
