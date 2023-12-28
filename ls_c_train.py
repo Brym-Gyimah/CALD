@@ -162,7 +162,7 @@ def get_unlabeledset(unlabeled_loader):
     for images, _ in unlabeled_loader:
         for image in images:
             unlabeledset.append(image)
-    return np.concatenate(unlabeledset, axis=0)
+    return np.array(unlabeledset)
 
 def dist_cal(unlabeled_embeddings):
   dist_mat = squareform(pdist(unlabeled_embeddings, metric="cosine"))
@@ -229,7 +229,7 @@ def main(args):
             budget_num = 500
     else:
         init_num = 500
-        budget_num = 500
+        budget_num = 200
     indices = list(range(num_images))
     random.shuffle(indices)
     labeled_set = indices[:init_num]
@@ -277,7 +277,7 @@ def main(args):
             print("Getting stability")
             random.shuffle(unlabeled_set)
             if 'coco' in args.dataset:
-                subset = unlabeled_set[:1000]
+                subset = unlabeled_set[:500]
             else:
                 subset = unlabeled_set
             labeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(labeled_set),
@@ -330,7 +330,7 @@ def main(args):
         #         os.path.join(args.first_checkpoint_path, '{}_frcnn_1st.pth'.format(args.dataset)))
         random.shuffle(unlabeled_set)
         if 'coco' in args.dataset:
-            subset = unlabeled_set[:1000]
+            subset = unlabeled_set[:500]
         else:
             subset = unlabeled_set
         # labeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(labeled_set),
@@ -354,7 +354,8 @@ def main(args):
         labeled_set += select_idxs
         # labeled_set += list(torch.tensor(subset)[arg][:budget_num].numpy())
         labeled_set = list(set(labeled_set))
-        unlabeled_set = list(torch.tensor(subset)[arg][budget_num:].numpy())
+        #unlabeled_set = list(torch.tensor(subset)[arg][budget_num:].numpy())
+        unlabeled_set = list(set(indices) - set(labeled_set))
 
         # Create a new dataloader for the updated labeled dataset
         train_sampler = SubsetRandomSampler(labeled_set)
