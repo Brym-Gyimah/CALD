@@ -165,36 +165,36 @@ def get_unlabeledset(unlabeled_loader):
     return np.array(unlabeledset)
 
 def dist_cal(unlabeled_embeddings):
-  dist_mat = squareform(pdist(unlabeled_embeddings, metric="cosine"))
-  return dist_mat
+    print("size of the unlabeled embeddings before calculating the distance: ", unlabeled_embeddings.shape)
+    dist_mat = squareform(pdist(unlabeled_embeddings, metric="cosine"))
+    return dist_mat
 
 def knei_dist(interd,fetch):
-  num_nei = round(interd.shape[0]/fetch)
-  knei_dist = []
-  for i in range(np.shape(interd)[0]):
-    temp_dist = np.sort(interd[i][:])
-    knei_dist.append(np.mean(temp_dist[:num_nei]))
-  dth = np.mean(knei_dist)
-  return dth
+    num_nei = round(interd.shape[0]/fetch)
+    knei_dist = []
+    for i in range(np.shape(interd)[0]):
+        temp_dist = np.sort(interd[i][:])
+        knei_dist.append(np.mean(temp_dist[:num_nei]))
+        dth = np.mean(knei_dist)
+    return dth
 
 def diversity_select(fetchsize, embedding_unlabeled, bs, uncertainty_score):
-  idx = []
-  nb = round(np.shape(embedding_unlabeled)[0]/bs)
-  for b in range(nb):
-    embedding_unlabeled_batch = embedding_unlabeled[b*bs:(b+1)*bs][:]
-    interd = dist_cal(embedding_unlabeled_batch)
-    dth = knei_dist(interd, round(fetchsize/nb))
-    # print(dth)
-    priority = uncertainty_score
-    # print(priority)
-    for i in range(round(fetchsize/nb)):
-      top_idx = np.argmax(priority)
-      idx.append(top_idx)
-      neighbordist = interd[top_idx][:]
-      neighboridx = np.where(neighbordist <= dth)[0]
-      priority[top_idx] = priority[top_idx] / (1 + 20*np.sum(priority[neighboridx]))
-      priority[neighboridx] = priority[neighboridx] / (1 + 20*np.sum(priority[neighboridx]))
-  return idx
+    idx = []
+    nb = round(np.shape(embedding_unlabeled)[0]/bs)
+    for b in range(nb):
+        embedding_unlabeled_batch = embedding_unlabeled[b*bs:(b+1)*bs]
+        interd = dist_cal(embedding_unlabeled_batch)
+        dth = knei_dist(interd, round(fetchsize/nb))
+        priority = uncertainty_score
+        # print(priority)
+        for i in range(round(fetchsize/nb)):
+          top_idx = np.argmax(priority)
+          idx.append(top_idx)
+          neighbordist = interd[top_idx][:]
+          neighboridx = np.where(neighbordist <= dth)[0]
+          priority[top_idx] = priority[top_idx] / (1 + 20*np.sum(priority[neighboridx]))
+          priority[neighboridx] = priority[neighboridx] / (1 + 20*np.sum(priority[neighboridx]))
+    return idx
 
 
 def main(args):
