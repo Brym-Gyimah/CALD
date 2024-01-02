@@ -165,8 +165,8 @@ def get_unlabeledset(unlabeled_loader, task_model):
             for image in images:
                 features = task_model([F.to_tensor(image).cuda()])  # Extract features using the model
                 unlabeledset.append(features.detach().cpu().numpy())  # Detach, move to CPU, and convert to NumPy array
-    return np.concatenate(unlabeledset, axis=0)  # Concatenate features along the first dimension
-
+    # return np.concatenate(unlabeledset, axis=0)  # Concatenate features along the first dimension
+    return np.array(unlabeledset)
 
 def dist_cal(unlabeled_embeddings):
     print("size of the unlabeled embeddings before calculating the distance: ", unlabeled_embeddings.shape)
