@@ -284,18 +284,11 @@ def main(args):
                 subset = unlabeled_set[:5000]
             else:
                 subset = unlabeled_set
-            labeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(labeled_set),
-                                        num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
-            u = get_uncertainty(task_model, labeled_loader)
-            with open("vis/lsc_labeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
-                      "wb") as fp:  # Pickling
-                pickle.dump(u, fp)
+                
             unlabeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(subset),
                                           num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
-            uncertainty = get_uncertainty(task_model, unlabeled_loader)
-            # arg = np.argsort(uncertainty)
-            
-            unlabeledset = get_unlabeledset(unlabeled_loader)
+                      
+            unlabeledset = get_unlabeledset(unlabeled_loader, task_model)
             select_idxs = diversity_select(budget_num, unlabeledset, 1000, uncertainty)
             
             with open("vis/lsc_unlabeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
@@ -350,7 +343,7 @@ def main(args):
         unlabeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(subset),
                                       num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
         uncertainty = get_uncertainty(task_model, unlabeled_loader)
-        unlabeledset = get_unlabeledset(unlabeled_loader)
+        unlabeledset = get_unlabeledset(unlabeled_loader, task_model)
         # print("Size of the unlabeled dataset:", np.shape(unlabeledset))
         select_idxs = diversity_select(budget_num, unlabeledset, 1000, uncertainty)
         # arg = np.argsort(uncertainty)
