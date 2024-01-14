@@ -289,23 +289,6 @@ def main(args):
                                           num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
                       
             unlabeledset = get_unlabeledset(unlabeled_loader, task_model)
-            select_idxs = diversity_select(budget_num, unlabeledset, 1000, uncertainty)
-            
-            with open("vis/lsc_unlabeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
-                      "wb") as fp:  # Pickling
-                pickle.dump(torch.tensor(uncertainty)[arg][:int(budget_num)].numpy(), fp)
-            # Update the labeled dataset and the unlabeled dataset, respectively
-            
-            labeled_set += select_idxs
-            labeled_set = list(set(labeled_set))
-            unlabeled_set = list(set(indices) - set(labeled_set))
-            # Create a new dataloader for the updated labeled dataset
-            train_sampler = SubsetRandomSampler(labeled_set)
-            continue
-        params = [p for p in task_model.parameters() if p.requires_grad]
-        task_optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-        task_lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(task_optimizer, milestones=args.lr_steps,
-                                                                 gamma=args.lr_gamma)
 
         # Start active learning cycles training
         if args.test_only:
@@ -325,43 +308,14 @@ def main(args):
                     coco_evaluate(task_model, data_loader_test)
                 elif 'voc' in args.dataset:
                     voc_evaluate(task_model, data_loader_test, args.dataset, path=args.results_path)
-        # if not args.skip and cycle == 0:
-        #     utils.save_on_master({
-        #         'model': task_model.state_dict(), 'args': args},
-        #         os.path.join(args.first_checkpoint_path, '{}_frcnn_1st.pth'.format(args.dataset)))
         random.shuffle(unlabeled_set)
         if 'coco' in args.dataset:
             subset = unlabeled_set[:5000]
         else:
             subset = unlabeled_set
-        # labeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(labeled_set),
-        #                             num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
-        # u = get_uncertainty(task_model, labeled_loader)
-        # with open("vis/lsc_labeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
-        #           "wb") as fp:  # Pickling
-        #     pickle.dump(u, fp)
         unlabeled_loader = DataLoader(dataset_aug, batch_size=1, sampler=SubsetSequentialSampler(subset),
                                       num_workers=args.workers, pin_memory=True, collate_fn=utils.collate_fn)
-        uncertainty = get_uncertainty(task_model, unlabeled_loader)
         unlabeledset = get_unlabeledset(unlabeled_loader, task_model)
-        # print("Size of the unlabeled dataset:", np.shape(unlabeledset))
-        select_idxs = diversity_select(budget_num, unlabeledset, 1000, uncertainty)
-        # arg = np.argsort(uncertainty)
-        # with open("vis/lsc_unlabeled_metric_{}_{}_{}.pkl".format(args.model, args.dataset, cycle),
-        #           "wb") as fp:  # Pickling
-        #     pickle.dump(torch.tensor(uncertainty)[arg][:int(budget_num)].numpy(), fp)
-
-        # Update the labeled dataset and the unlabeled dataset, respectively
-        labeled_set += select_idxs
-        labeled_set = list(set(labeled_set))
-        unlabeled_set = list(set(indices) - set(labeled_set))
-
-        # Create a new dataloader for the updated labeled dataset
-        train_sampler = SubsetRandomSampler(labeled_set)
-
-        total_time = time.time() - start_time
-        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print('Training time {}'.format(total_time_str))
 
 
 if __name__ == "__main__":
