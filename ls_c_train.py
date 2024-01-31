@@ -157,16 +157,35 @@ def get_uncertainty(task_model, unlabeled_loader, aves=None):
                 stability_all.append(stability_img - U)
     return stability_all
 
+# def get_unlabeledset(unlabeled_loader, task_model):
+#     task_model.eval()
+#     with torch.no_grad():
+#         unlabeledset = []
+#         for images, _ in unlabeled_loader:
+#             for image in images:
+#                 features = task_model([F.to_tensor(image).cuda()])  # Extract features using the model
+#                 unlabeledset.append(features.detach().cpu().numpy())  # Detach, move to CPU, and convert to NumPy array
+#     # return np.concatenate(unlabeledset, axis=0)  # Concatenate features along the first dimension
+#     return np.array(unlabeledset)
+
 def get_unlabeledset(unlabeled_loader, task_model):
     task_model.eval()
     with torch.no_grad():
         unlabeledset = []
         for images, _ in unlabeled_loader:
             for image in images:
-                features = task_model([F.to_tensor(image).cuda()])  # Extract features using the model
-                unlabeledset.append(features.detach().cpu().numpy())  # Detach, move to CPU, and convert to NumPy array
-    # return np.concatenate(unlabeledset, axis=0)  # Concatenate features along the first dimension
-    return np.array(unlabeledset)
+                # Extract features using the model
+                features = task_model([F.to_tensor(image).cuda()])
+
+                # Detach, move to CPU, flatten, and convert to NumPy array 
+                # Ensuring each feature is a flat array
+                unlabeledset.append(features.detach().cpu().numpy().flatten())
+
+        # Concatenate features along the first dimension to get a 2D array
+        # where each row is the feature vector of an image
+        unlabeledset_np = np.concatenate([arr[np.newaxis, :] for arr in unlabeledset], axis=0)
+
+    return unlabeledset_np
 
 def dist_cal(unlabeled_embeddings):
     print("size of the unlabeled embeddings before calculating the distance: ", unlabeled_embeddings.shape)
