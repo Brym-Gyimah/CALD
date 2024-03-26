@@ -25,6 +25,9 @@ import math
 import sys
 import numpy as np
 import math
+from math import exp
+import gc
+
 
 import torch
 import torch.utils.data
@@ -36,9 +39,15 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.data.sampler import SubsetRandomSampler
+from torchmetrics.functional import pairwise_cosine_similarity
+from torch._C import device
+import torch.nn as nn
+import torch.nn.functional as F
+print(torch.__version__, torch.cuda.is_available())
 
 from detection.frcnn_la import fasterrcnn_resnet50_fpn_feature
 from detection.coco_utils import get_coco, get_coco_kp
+from detection.voc_utils import get_voc2007, get_voc2012
 from detection.group_by_aspect_ratio import GroupedBatchSampler, create_aspect_ratio_groups
 from detection.engine import coco_evaluate, voc_evaluate
 from detection import utils
@@ -47,6 +56,31 @@ from detection.train import *
 
 from ll4al.data.sampler import SubsetSequentialSampler
 import pickle
+
+
+# Check MMDetection installation
+import mmdet
+print(mmdet.__version__)
+
+# Check mmcv installation
+from mmcv.ops import get_compiling_cuda_version, get_compiler_version
+print(get_compiling_cuda_version())
+print(get_compiler_version())
+
+
+# import other modules
+import copy
+import submodlib
+from talisman.strategies.active_learning_utils.compute_kernel import compute_imageImage_kernel, compute_queryImage_kernel, compute_queryQuery_kernel
+from talisman.strategies.active_learning_utils.custom_dataset import build_dataset_with_indices, create_custom_dataset, get_class_statistics, prepare_val_file
+from talisman.strategies.active_learning_utils.extract_features import get_query_RoI_features, get_unlabelled_RoI_features, get_unlabelled_top_k_RoI_features
+from talisman.strategies.active_learning_utils.utils import execute
+
+# import mmcv functionalities
+from mmcv import Config
+from mmdet.apis import init_detector
+from mmdet.datasets import build_dataloader, build_dataset
+from mmdet.datasets.dataset_wrappers import RepeatDataset
 
 
 def train_one_epoch(task_model, task_optimizer, data_loader, device, cycle, epoch, print_freq):
