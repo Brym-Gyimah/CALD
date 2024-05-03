@@ -8,7 +8,7 @@ Create a conda environment with python 3.7 and activate the environment
 (option if you want to get class-wise results of coco)
 - pip install mmcv-full==1.0.4 -f https://download.openmmlab.com/mmcv/dist/cu110/torch1.7.0/index.html
 - pip install cython==0.29.33
-- # pip install pycocotools==2.0.2
+- pip install pycocotools==2.0.2 # This breaks the code so ignore
 - pip install "git+https://github.com/open-mmlab/cocoapi.git#subdirectory=pycocotools"
 - pip install terminaltables==3.1.0
 
